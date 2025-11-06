@@ -1,0 +1,19 @@
+#import matplotlib 
+E_mass=5.9742e24
+S_mass=1.9889e30
+#arrays do [time,x position, y position]
+E_pos=[[0,1.496e11,0]]
+S_pos=[[0,0,0]]
+E_vel=[[-0.5,2.9819e4,0]]
+S_vel=[[-0.5,0,0]]
+t=1
+def G_force(m1,m2,r1,r2):
+    return -(m1*m2)/(r1-r2)**2
+for i in range(99):
+    E_vel.append([E_vel[i][0]+t, E_vel[i][1]+t*E_mass*G_force(E_mass, S_mass, E_pos[i][1], S_pos[i][1]), E_vel[i][2]+t*E_mass*G_force(E_mass, S_mass, E_pos[i][2], S_pos[i][2])])
+    S_vel.append([S_vel[i][0]+t, S_vel[i][1]+t*S_mass*G_force(E_mass, S_mass, S_pos[i][1], S_pos[i][1]), S_vel[i][2]+t*S_mass*G_force(E_mass, S_mass, S_pos[i][2], E_pos[i][2])])
+    E_pos.append([E_pos[i][0]+t, E_pos[i][1] + (t/2)*E_vel[i][1] + (t/2)*E_vel[i+1][1], E_pos[i][2] + (t/2)*E_vel[i][2] + (t/2)*E_vel[i+1][2]])
+    E_pos.append([S_pos[i][0]+t, S_pos[i][1] + (t/2)*S_vel[i][1] + (t/2)*S_vel[i+1][1], S_pos[i][2] + (t/2)*S_vel[i][2] + (t/2)*S_vel[i+1][2]])
+
+for i in E_pos:
+    print((E_pos[i][1]**2+E_pos[i][2]**2)**(1/2))
