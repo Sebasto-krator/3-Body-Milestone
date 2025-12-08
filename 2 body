@@ -1,19 +1,145 @@
-#import matplotlib 
+import numpy as np
+import matplotlib.pyplot as plt
+G=6.67430e-11
 E_mass=5.9742e24
 S_mass=1.9889e30
-#arrays do [time,x position, y position]
-E_pos=[[0,1.496e11,0]]
-S_pos=[[0,0,0]]
-E_vel=[[-0.5,2.9819e4,0]]
-S_vel=[[-0.5,0,0]]
-t=1
-def G_force(m1,m2,r1,r2):
-    return -(m1*m2)/(r1-r2)**2
-for i in range(99):
-    E_vel.append([E_vel[i][0]+t, E_vel[i][1]+t*E_mass*G_force(E_mass, S_mass, E_pos[i][1], S_pos[i][1]), E_vel[i][2]+t*E_mass*G_force(E_mass, S_mass, E_pos[i][2], S_pos[i][2])])
-    S_vel.append([S_vel[i][0]+t, S_vel[i][1]+t*S_mass*G_force(E_mass, S_mass, S_pos[i][1], S_pos[i][1]), S_vel[i][2]+t*S_mass*G_force(E_mass, S_mass, S_pos[i][2], E_pos[i][2])])
-    E_pos.append([E_pos[i][0]+t, E_pos[i][1] + (t/2)*E_vel[i][1] + (t/2)*E_vel[i+1][1], E_pos[i][2] + (t/2)*E_vel[i][2] + (t/2)*E_vel[i+1][2]])
-    E_pos.append([S_pos[i][0]+t, S_pos[i][1] + (t/2)*S_vel[i][1] + (t/2)*S_vel[i+1][1], S_pos[i][2] + (t/2)*S_vel[i][2] + (t/2)*S_vel[i+1][2]])
+J_mass=1.8986e27
+#sun-earth distance
+S_E=1.496e11
+#sun-jupiter distance
+S_J=-7.7854e11
+t=86400
 
-for i in E_pos:
-    print((E_pos[i][1]**2+E_pos[i][2]**2)**(1/2))
+#centre of mass is set to 0
+R_Sun=-(E_mass*S_E+J_mass*S_J)/(S_mass+E_mass+J_mass)
+R_Earth=R_Sun+S_E
+R_Jupiter=R_Sun+S_J
+
+v_E=(G*S_mass/R_Earth)**0.5
+v_J=-(G*S_mass/abs(R_Jupiter))**0.5
+v_S=-((E_mass*v_E+J_mass*v_J)/S_mass)
+
+
+Pos_E = [np.array([R_Earth, 0.0], dtype=float)]
+Pos_S = [np.array([R_Sun, 0.0], dtype=float)]
+Pos_J = [np.array([R_Jupiter, 0.0], dtype=float)]
+
+# velocities stored similarly: [time, vx, vy]
+Vel_E = [np.array([ 0.0, v_E], dtype=float)]
+Vel_S = [np.array([0.0, v_S], dtype=float)]
+Vel_J = [np.array([0.0, v_J], dtype=float)]
+
+jumps=365*100
+
+def G_accel(our_obj, other_objs, other_masses):
+    # acceleration vector on our_obj due to other_objs/other_masses
+    f = np.array([0.0, 0.0], dtype=float)
+    for other_pos, M in zip(other_objs, other_masses):
+        vect = other_pos - our_obj   # vector from us -> other (x,y)
+        dist = np.linalg.norm(vect)
+        #if dist == 0.0:
+            #continue
+        # acceleration magnitude times unit vector: G * M / r^2 * (vect / r) = G*M*vect/r^3
+        f += G * M * vect / dist**3
+    return f
+
+
+
+for j in range(jumps):
+    # use current positions at index j, pass the mass values
+    E_Acc = G_accel(Pos_E[j], [Pos_S[j], Pos_J[j]], [S_mass, J_mass])
+    S_Acc = G_accel(Pos_S[j], [Pos_E[j], Pos_J[j]], [E_mass, J_mass])
+    J_Acc = G_accel(Pos_J[j], [Pos_E[j], Pos_S[j]], [E_mass, S_mass])
+
+    # update velocities (time stored in element 0)
+    Vel_E.append(Vel_E[j] + np.array([E_Acc[0]*t, E_Acc[1]*t]))
+    Vel_S.append(Vel_S[j] + np.array([S_Acc[0]*t, S_Acc[1]*t]))
+    Vel_J.append(Vel_J[j] + np.array([J_Acc[0]*t, J_Acc[1]*t]))
+
+    # update positions using the newly appended velocities (Vel_*[j+1])
+    Pos_E.append(Pos_E[j] + np.array([Vel_E[j+1][0]*t, Vel_E[j+1][1]*t]))
+    Pos_S.append(Pos_S[j] + np.array([Vel_S[j+1][0]*t, Vel_S[j+1][1]*t]))
+    Pos_J.append(Pos_J[j] + np.array([Vel_J[j+1][0]*t, Vel_J[j+1][1]*t]))
+
+# convert to arrays for plotting
+PE = np.array(Pos_E)
+PS = np.array(Pos_S)
+PJ = np.array(Pos_J)
+
+#positions are updated on increments and velocities on half increments
+increments=[0]
+half_increments=[-t/2]
+for i in range(jumps):
+    increments.append(t+increments[i])
+    half_increments.append(t+half_increments[i])
+
+def KE(velocities,M):
+    KEs=[]
+    for i in velocities:
+        KEs.append(0.5*M*(np.linalg.norm(i))**2)
+    return KEs
+
+KE_E=KE(Vel_E,E_mass)
+KE_S=KE(Vel_S,S_mass)
+KE_J=KE(Vel_J,J_mass)
+KE_Total=np.array(KE_E)+np.array(KE_S)+np.array(KE_J)
+
+#potential energy calculation
+nsteps = PE.shape[0]
+U_arr = np.zeros(nsteps, dtype=float)
+#eps = 1e-12  # tiny softening to avoid divide-by-zero if needed
+for i in range(nsteps):
+    r_ES = np.linalg.norm(PE[i] - PS[i]) #+ eps
+    r_EJ = np.linalg.norm(PE[i] - PJ[i]) #+ eps
+    r_SJ = np.linalg.norm(PS[i] - PJ[i]) #+ eps
+    U_arr[i] = -G * (E_mass * S_mass / r_ES + E_mass * J_mass / r_EJ + S_mass * J_mass / r_SJ)
+
+E_Tot = KE_Total + U_arr
+
+plt.figure()
+plt.title('Energies over Time')
+plt.plot(half_increments, KE_Total, label='Total Kinetic Energy')
+plt.plot(increments, U_arr, label='Total Potential Energy')
+plt.plot(increments, E_Tot, label='Total Energy')
+plt.xlabel('Time (s)')
+plt.ylabel('Energy (J)')
+#plt.gca().set_aspect('equal', 'box')
+plt.legend()
+plt.show()
+
+CoM=np.zeros((nsteps,2), dtype=float)
+for i in range(nsteps):
+    CoM[i]=(S_mass*PS[i]+E_mass*PE[i]+J_mass*PJ[i])/(S_mass+E_mass+J_mass)
+# plt.figure()
+# plt.plot(CoM[:,0], CoM[:,1], label='Center of Mass')
+# plt.gca().set_aspect('equal', 'box')
+# plt.legend()
+# plt.show()
+
+plt.figure()
+plt.title('Orbital Paths')
+plt.plot(PS[:,0], PS[:,1], label='Sun')
+plt.plot(PE[:,0], PE[:,1], label='Earth')
+plt.plot(PJ[:,0], PJ[:,1], label='Jupiter')
+plt.plot(CoM[:,0], CoM[:,1], label='Center of Mass')
+plt.xlabel('x position (m)')
+plt.ylabel('y position (m)')
+plt.gca().set_aspect('equal', 'box')
+plt.legend()
+plt.show()
+
+PE_mag = np.linalg.norm(PE, axis=1)   # shape (N,) distances from origin
+PS_mag = np.linalg.norm(PS, axis=1)
+PJ_mag = np.linalg.norm(PJ, axis=1)
+plt.figure()
+plt.title('Object Distances over Time for a timestep of '+str(t)+' seconds')
+plt.plot(increments, PE_mag, label='Earth Distance from CoM')
+plt.plot(increments, PS_mag, label='Sun Distance from CoM')
+plt.plot(increments, PJ_mag, label='Jupiter Distance from CoM')
+plt.xlabel('Time (s)')
+plt.ylabel('Distance (m)')
+plt.legend()
+plt.show()
+
+#dababy
+        
