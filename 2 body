@@ -8,7 +8,9 @@ J_mass=1.8986e27
 S_E=1.496e11
 #sun-jupiter distance
 S_J=-7.7854e11
+
 t=86400
+jumps=int(20*3.14e7/t)
 
 #centre of mass is set to 0
 R_Sun=-(E_mass*S_E+J_mass*S_J)/(S_mass+E_mass+J_mass)
@@ -25,11 +27,11 @@ Pos_S = [np.array([R_Sun, 0.0], dtype=float)]
 Pos_J = [np.array([R_Jupiter, 0.0], dtype=float)]
 
 # velocities stored similarly: [time, vx, vy]
-Vel_E = [np.array([ 0.0, v_E], dtype=float)]
+Vel_E = [np.array([0.0, v_E], dtype=float)]
 Vel_S = [np.array([0.0, v_S], dtype=float)]
 Vel_J = [np.array([0.0, v_J], dtype=float)]
 
-jumps=365*100
+
 
 def G_accel(our_obj, other_objs, other_masses):
     # acceleration vector on our_obj due to other_objs/other_masses
@@ -61,6 +63,14 @@ for j in range(jumps):
     Pos_S.append(Pos_S[j] + np.array([Vel_S[j+1][0]*t, Vel_S[j+1][1]*t]))
     Pos_J.append(Pos_J[j] + np.array([Vel_J[j+1][0]*t, Vel_J[j+1][1]*t]))
 
+# one final acceleration and velocity update to complete the last step
+E_Acc = G_accel(Pos_E[-1], [Pos_S[-1], Pos_J[-1]], [S_mass, J_mass])
+S_Acc = G_accel(Pos_S[-1], [Pos_E[-1], Pos_J[-1]], [E_mass, J_mass])
+J_Acc = G_accel(Pos_J[-1], [Pos_E[-1], Pos_S[-1]], [E_mass, S_mass])
+Vel_E.append(Vel_E[-1] + np.array([E_Acc[0]*t, E_Acc[1]*t]))
+Vel_S.append(Vel_S[-1] + np.array([S_Acc[0]*t, S_Acc[1]*t]))
+Vel_J.append(Vel_J[-1] + np.array([J_Acc[0]*t, J_Acc[1]*t]))
+
 # convert to arrays for plotting
 PE = np.array(Pos_E)
 PS = np.array(Pos_S)
@@ -73,39 +83,72 @@ for i in range(jumps):
     increments.append(t+increments[i])
     half_increments.append(t+half_increments[i])
 
+#KE is calculated a half timestep apart from potential energy
+#so the velocity array is one entry longer than the position array
+#so you can calculate KE at every timestep by averaging 
+#from half timesteps on either side
 def KE(velocities,M):
     KEs=[]
+    KE_reg_timestep=[]
     for i in velocities:
         KEs.append(0.5*M*(np.linalg.norm(i))**2)
-    return KEs
+    for i in range(len(KEs)-1):
+        KE_reg_timestep.append((KEs[i]+KEs[i+1])/2)
+    return KE_reg_timestep
 
 KE_E=KE(Vel_E,E_mass)
 KE_S=KE(Vel_S,S_mass)
 KE_J=KE(Vel_J,J_mass)
 KE_Total=np.array(KE_E)+np.array(KE_S)+np.array(KE_J)
 
-#potential energy calculation
+#potential energy calculation, last entry ignored to match KE array size
 nsteps = PE.shape[0]
 U_arr = np.zeros(nsteps, dtype=float)
+U_E = np.zeros(nsteps, dtype=float)
+U_J = np.zeros(nsteps, dtype=float)
+U_S = np.zeros(nsteps, dtype=float)
 #eps = 1e-12  # tiny softening to avoid divide-by-zero if needed
 for i in range(nsteps):
     r_ES = np.linalg.norm(PE[i] - PS[i]) #+ eps
     r_EJ = np.linalg.norm(PE[i] - PJ[i]) #+ eps
     r_SJ = np.linalg.norm(PS[i] - PJ[i]) #+ eps
+    U_E[i] = -G * E_mass * (S_mass / r_ES + J_mass / r_EJ)
+    U_S[i] = -G * S_mass * (E_mass / r_ES + J_mass / r_SJ)
+    U_J[i] = -G * J_mass * (E_mass / r_EJ + S_mass / r_SJ) 
+
     U_arr[i] = -G * (E_mass * S_mass / r_ES + E_mass * J_mass / r_EJ + S_mass * J_mass / r_SJ)
 
 E_Tot = KE_Total + U_arr
+E_Tot_Avg_Diff=(E_Tot-E_Tot.mean())/E_Tot.mean()*100
+KE_Avg_Diff=(KE_Total-KE_Total.mean())/KE_Total.mean()*100
+U_Avg_Diff=(U_arr-U_arr.mean())/U_arr.mean()*100
+E_E= np.array(KE_E)+U_E
+E_E_Avg_Diff=(E_E-E_E.mean())/E_E.mean()*100
+E_S= np.array(KE_S)+U_S 
+E_S_Avg_Diff=(E_S-E_S.mean())/E_S.mean()*100
+E_J= np.array(KE_J)+U_J
+E_J_Avg_Diff=(E_J-E_J.mean())/E_J.mean()*100
 
-plt.figure()
-plt.title('Energies over Time')
-plt.plot(half_increments, KE_Total, label='Total Kinetic Energy')
-plt.plot(increments, U_arr, label='Total Potential Energy')
-plt.plot(increments, E_Tot, label='Total Energy')
-plt.xlabel('Time (s)')
-plt.ylabel('Energy (J)')
-#plt.gca().set_aspect('equal', 'box')
-plt.legend()
-plt.show()
+# plt.figure()
+# plt.title('Individual Energies over Time')
+# plt.plot(increments, E_E_Avg_Diff, label='Earth Total Energy')
+# plt.plot(increments, E_S_Avg_Diff, label='Sun Total Energy')
+# plt.plot(increments, E_J_Avg_Diff, label='Jupiter Total Energy')
+# plt.xlabel('Time (s)')
+# plt.ylabel('Percentage Difference from Mean')
+# plt.legend()
+# plt.show()
+
+# plt.figure()
+# plt.title('Energies over Time')
+# plt.plot(half_increments, KE_Avg_Diff, label='Total Kinetic Energy')
+# plt.plot(increments, U_Avg_Diff, label='Total Potential Energy')
+# plt.plot(increments, E_Tot_Avg_Diff, label='Total Energy')
+# plt.ylabel('Percentage Difference from Mean')
+# plt.xlabel('Time (s)')
+# #plt.gca().set_aspect('equal', 'box')
+# plt.legend()
+# plt.show()
 
 CoM=np.zeros((nsteps,2), dtype=float)
 for i in range(nsteps):
@@ -116,30 +159,55 @@ for i in range(nsteps):
 # plt.legend()
 # plt.show()
 
+# plt.figure()
+# plt.title('Orbital Paths')
+# plt.plot(PS[:,0], PS[:,1], label='Sun')
+# plt.plot(PE[:,0], PE[:,1], label='Earth')
+# plt.plot(PJ[:,0], PJ[:,1], label='Jupiter')
+# plt.plot(CoM[:,0], CoM[:,1], label='Center of Mass')
+# plt.xlabel('x position (m)')
+# plt.ylabel('y position (m)')
+# plt.gca().set_aspect('equal', 'box')
+# plt.legend()
+# plt.show()
+
+PE_mag = np.linalg.norm(PE-CoM, axis=1)   # shape (N,) distances from origin
+PE_mag = (PE_mag - PE_mag.mean()) / PE_mag.mean() * 100.0
+PS_mag = np.linalg.norm(PS-CoM, axis=1)
+PS_mag = (PS_mag - PS_mag.mean()) / PS_mag.mean() * 100.0
+PJ_mag = np.linalg.norm(PJ-CoM, axis=1)
+PJ_mag = (PJ_mag - PJ_mag.mean()) / PJ_mag.mean() * 100.0
+
+#section=int(jumps/100*20)
+section=None
+
 plt.figure()
-plt.title('Orbital Paths')
-plt.plot(PS[:,0], PS[:,1], label='Sun')
-plt.plot(PE[:,0], PE[:,1], label='Earth')
-plt.plot(PJ[:,0], PJ[:,1], label='Jupiter')
-plt.plot(CoM[:,0], CoM[:,1], label='Center of Mass')
-plt.xlabel('x position (m)')
-plt.ylabel('y position (m)')
-plt.gca().set_aspect('equal', 'box')
+plt.title('Object Distances over Time for a timestep of '+str(round(t/86400,3))+' days')
+plt.plot((np.array(increments)/3.154e7)[:section], PE_mag[:section], label='Earth Distance from CoM')
+plt.plot((np.array(increments)/3.154e7)[:section], PS_mag[:section], label='Sun Distance from CoM')
+plt.plot((np.array(increments)/3.154e7)[:section], PJ_mag[:section], label='Jupiter Distance from CoM')
+plt.xlabel('Time (years)')
+plt.ylabel('% deviation from mean')
 plt.legend()
 plt.show()
 
-PE_mag = np.linalg.norm(PE, axis=1)   # shape (N,) distances from origin
-PS_mag = np.linalg.norm(PS, axis=1)
-PJ_mag = np.linalg.norm(PJ, axis=1)
-plt.figure()
-plt.title('Object Distances over Time for a timestep of '+str(t)+' seconds')
-plt.plot(increments, PE_mag, label='Earth Distance from CoM')
-plt.plot(increments, PS_mag, label='Sun Distance from CoM')
-plt.plot(increments, PJ_mag, label='Jupiter Distance from CoM')
-plt.xlabel('Time (s)')
-plt.ylabel('Distance (m)')
-plt.legend()
-plt.show()
+from pathlib import Path
 
+# absolute output folder (same as your previous outdir)
+outdir = Path(r'c:\Users\chris\OneDrive\Desktop\Repositories\3 Body\3-Body-Milestone\output')
 
+# OR project-relative output folder:
+# outdir = Path(__file__).resolve().parent / 'output'
+
+outdir.mkdir(parents=True, exist_ok=True)
+
+fname = outdir / f"1 day.npz"
+# np.savez_compressed accepts a path-like, but convert to str() for compatibility
+np.savez_compressed(
+    str(fname),
+    increments=np.array(increments),
+    PE_mag=PE_mag,
+    PS_mag=PS_mag,
+    PJ_mag=PJ_mag
+)
         

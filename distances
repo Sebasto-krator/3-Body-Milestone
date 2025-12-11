@@ -1,0 +1,19 @@
+import numpy as np
+from pathlib import Path
+import matplotlib.pyplot as plt
+
+p = Path(r'c:\Users\chris\OneDrive\Desktop\Repositories\3 Body\3-Body-Milestone\output') / f"t_172800.npz"
+data = np.load(str(p))
+increments = data['increments']
+two_day_PE_mag = data['PE_mag']
+
+
+section=None
+
+plt.figure()
+#plt.title('Object Distances over Time for a timestep of '+str(round(t/86400,3))+' days')
+plt.plot((np.array(increments)/3.154e7)[:section], two_day_PE_mag[:section], label='dt = 2 days')
+plt.xlabel('Time (years)')
+plt.ylabel('% deviation from mean')
+plt.legend()
+plt.show()
