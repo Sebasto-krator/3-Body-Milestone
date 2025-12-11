@@ -9,7 +9,7 @@ S_E=1.496e11
 #sun-jupiter distance
 S_J=-7.7854e11
 
-t=86400
+t=86400/128
 jumps=int(20*3.14e7/t)
 
 #centre of mass is set to 0
@@ -201,7 +201,7 @@ outdir = Path(r'c:\Users\chris\OneDrive\Desktop\Repositories\3 Body\3-Body-Miles
 
 outdir.mkdir(parents=True, exist_ok=True)
 
-fname = outdir / f"1 day.npz"
+fname = outdir / f"128th day.npz"
 # np.savez_compressed accepts a path-like, but convert to str() for compatibility
 np.savez_compressed(
     str(fname),

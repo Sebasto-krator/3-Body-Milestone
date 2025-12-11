@@ -2,18 +2,120 @@ import numpy as np
 from pathlib import Path
 import matplotlib.pyplot as plt
 
-p = Path(r'c:\Users\chris\OneDrive\Desktop\Repositories\3 Body\3-Body-Milestone\output') / f"t_172800.npz"
-data = np.load(str(p))
-increments = data['increments']
-two_day_PE_mag = data['PE_mag']
+outdir = Path(r'c:\Users\chris\OneDrive\Desktop\Repositories\3 Body\3-Body-Milestone\output')
+outdir.mkdir(parents=True, exist_ok=True)
 
+p = Path(r'c:\Users\chris\OneDrive\Desktop\Repositories\3 Body\3-Body-Milestone\output') / f"t_172800.npz"
+two_data = np.load(str(p))
+two_increments = two_data['increments']
+two_day_PE_mag = two_data['PE_mag']
+
+p = Path(r'c:\Users\chris\OneDrive\Desktop\Repositories\3 Body\3-Body-Milestone\output') / f"1 day.npz"
+one_data = np.load(str(p))
+one_increments = one_data['increments']
+one_day_PE_mag = one_data['PE_mag']
+
+p = Path(r'c:\Users\chris\OneDrive\Desktop\Repositories\3 Body\3-Body-Milestone\output') / f"half day.npz"
+half_data = np.load(str(p))
+half_increments = half_data['increments']
+half_day_PE_mag = half_data['PE_mag']
+
+p= Path(r'c:\Users\chris\OneDrive\Desktop\Repositories\3 Body\3-Body-Milestone\output') / f"quater day.npz"
+data = np.load(str(p))  
+quater_increments = data['increments']
+quater_day_PE_mag = data['PE_mag']
+
+p = Path(r'c:\Users\chris\OneDrive\Desktop\Repositories\3 Body\3-Body-Milestone\output') / f"eigth day.npz"
+data = np.load(str(p))
+eigth_increments = data['increments']
+eigth_day_PE_mag = data['PE_mag']
+
+p = Path(r'c:\Users\chris\OneDrive\Desktop\Repositories\3 Body\3-Body-Milestone\output') / f"sixteenth day.npz"
+data = np.load(str(p))
+sixteenth_increments = data['increments']
+sixteenth_day_PE_mag = data['PE_mag']
+
+p = Path(r'c:\Users\chris\OneDrive\Desktop\Repositories\3 Body\3-Body-Milestone\output') / f"thirtyseconth day.npz"
+data = np.load(str(p))
+thirtyseconth_increments = data['increments']
+thirtyseconth_day_PE_mag = data['PE_mag']
+
+p = Path(r'c:\Users\chris\OneDrive\Desktop\Repositories\3 Body\3-Body-Milestone\output') / f"128th day.npz"
+data = np.load(str(p))
+hundredtwentyeighth_increments = data['increments']
+hundredtwentyeighth_day_PE_mag = data['PE_mag']
+hundredtwentyeighth_day_PS_mag = data['PS_mag']
+hundredtwentyeighth_day_PJ_mag = data['PJ_mag']
 
 section=None
 
-plt.figure()
-#plt.title('Object Distances over Time for a timestep of '+str(round(t/86400,3))+' days')
-plt.plot((np.array(increments)/3.154e7)[:section], two_day_PE_mag[:section], label='dt = 2 days')
-plt.xlabel('Time (years)')
-plt.ylabel('% deviation from mean')
-plt.legend()
+fig, (ax1, ax2) = plt.subplots(2, 1, gridspec_kw={'height_ratios': [4, 1]})
+
+# Top plot: convergence study (all timesteps)
+ax1.plot((np.array(two_increments)/3.154e7)[:section], abs(two_day_PE_mag[:section]), label='dt = 2 days', color='red')
+ax1.axhline(y=max(abs(two_day_PE_mag)), color='red')
+ax1.plot((np.array(one_increments)/3.154e7)[:section], abs(one_day_PE_mag[:section]), label='dt = 1 day', color='orange')
+ax1.axhline(y=max(abs(one_day_PE_mag)), color='orange')
+ax1.plot((np.array(half_increments)/3.154e7)[:section], abs(half_day_PE_mag[:section]), label='dt = 1/2 days', color='green')
+ax1.axhline(y=max(abs(half_day_PE_mag)), color='green')
+ax1.plot((np.array(quater_increments)/3.154e7)[:section], abs(quater_day_PE_mag[:section]), label='dt = 1/4 days', color='blue')
+ax1.axhline(y=max(abs(quater_day_PE_mag)), color='blue')
+ax1.plot((np.array(hundredtwentyeighth_increments)/3.154e7)[:section], abs(hundredtwentyeighth_day_PE_mag[:section]), label='dt = 1/128 days', color='purple')
+ax1.axhline(y=max(abs(hundredtwentyeighth_day_PE_mag)), color='purple')
+
+#ax1.set_xlabel('Time (years)')
+#ax1.set_ylabel('Absolute % deviation from mean')
+ax1.legend(loc='upper left')
+#ax1.set_title('Earth Distance Convergence Study')
+
+# Bottom plot: finest timestep (1/128 days) with all three bodies
+ax2.plot((np.array(hundredtwentyeighth_increments)/3.154e7)[:section], abs(hundredtwentyeighth_day_PS_mag[:section]), label='Sun', color='cyan')
+ax2.plot((np.array(hundredtwentyeighth_increments)/3.154e7)[:section], abs(hundredtwentyeighth_day_PJ_mag[:section]), label='Jupiter', color='magenta')
+
+ax2.set_xlabel('Time (years)')
+#ax2.set_ylabel('Absolute % deviation from mean')
+ax2.legend(loc='upper left')
+#ax2.set_title('All Bodies (dt = 1/128 days)')
+
+plt.tight_layout()
+fig.text(0, 0.5, 'Absolute percentage deviation from mean', va='center', rotation='vertical', fontsize=11)
+plt.savefig(str(outdir / "distance deviations.png"), transparent=True, dpi=300)
 plt.show()
+
+
+
+
+# plt.figure()
+# plt.plot([2,1,0.5,0.25,0.125,0.0625,0.03125,0.0078125],
+#          [max(abs(two_day_PE_mag)),max(abs(one_day_PE_mag)),max(abs(half_day_PE_mag)),
+#           max(abs(quater_day_PE_mag)),max(abs(eigth_day_PE_mag)),max(abs(sixteenth_day_PE_mag)),
+#           max(abs(thirtyseconth_day_PE_mag)),max(abs(hundredtwentyeighth_day_PE_mag))])
+# #plt.xscale('log')   
+# plt.xlabel('Timestep (days)')
+# plt.ylabel('Maximum Absolute % deviation from mean')
+# plt.show()
+
+# dt_array = np.array([2, 1, 0.5, 0.25, 0.125, 0.0625, 0.03125, 0.0078125])
+# max_dev_array = np.array([
+#     max(abs(two_day_PE_mag)),
+#     max(abs(one_day_PE_mag)),
+#     max(abs(half_day_PE_mag)),
+#     max(abs(quater_day_PE_mag)),
+#     max(abs(eigth_day_PE_mag)),
+#     max(abs(sixteenth_day_PE_mag)),
+#     max(abs(thirtyseconth_day_PE_mag)),
+#     max(abs(hundredtwentyeighth_day_PE_mag))
+# ])
+
+# # polynomial fit (degree 2)
+# coeffs = np.polyfit(dt_array, max_dev_array, 2)
+# poly_fit = np.poly1d(coeffs)
+# dt_smooth = np.linspace(dt_array.min(), dt_array.max(), 100)
+
+# plt.figure()
+# plt.plot(dt_array, max_dev_array, 'o', label='Data', markersize=8)
+# plt.plot(dt_smooth, poly_fit(dt_smooth), '--', label=f'Fit: {coeffs[0]:.3f}x² + {coeffs[1]:.3f}x + {coeffs[2]:.3f}')
+# plt.xlabel('Timestep (days)')
+# plt.ylabel('Maximum Absolute % deviation from mean')
+# plt.legend()
+# plt.show()
